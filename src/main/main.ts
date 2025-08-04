@@ -14,6 +14,12 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
+import { 
+  initializeThermalPrinters, 
+  shutdownThermalPrinters, 
+  setupPrinterIPC,
+  printHelloToCbx 
+} from './printer-integration';
 
 class AppUpdater {
   constructor() {
@@ -29,6 +35,23 @@ ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
+});
+
+// Setup thermal printer IPC handlers
+setupPrinterIPC();
+
+// Additional quick test handler for CBX POS 89E
+ipcMain.handle('printer-cbx-hello', async () => {
+  try {
+    await printHelloToCbx();
+    return { success: true, message: 'Hello World printed to CBX POS 89E successfully!' };
+  } catch (error) {
+    log.error('CBX Hello World failed:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : String(error) 
+    };
+  }
 });
 
 if (process.env.NODE_ENV === 'production') {
@@ -116,7 +139,15 @@ const createWindow = async () => {
  * Add event listeners...
  */
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
+  // Clean up thermal printer service before quitting
+  try {
+    await shutdownThermalPrinters();
+    log.info('✅ Thermal printer service shutdown completed');
+  } catch (error) {
+    log.warn('⚠️  Error during thermal printer service shutdown:', error);
+  }
+  
   // Respect the OSX convention of having the application in memory even
   // after all windows have been closed
   if (process.platform !== 'darwin') {
@@ -126,8 +157,23 @@ app.on('window-all-closed', () => {
 
 app
   .whenReady()
-  .then(() => {
+  .then(async () => {
     createWindow();
+    
+    // Initialize thermal printer system
+    try {
+      log.info('🖨️  Initializing thermal printer system...');
+      await initializeThermalPrinters();
+      log.info('✅ Thermal printer system initialized successfully');
+      
+      // In development, show available global helpers
+      if (isDebug) {
+        log.info('🛠️  Development mode: Thermal printer helpers available in console');
+      }
+    } catch (error) {
+      log.warn('⚠️  Failed to initialize thermal printer system:', error);
+    }
+    
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.

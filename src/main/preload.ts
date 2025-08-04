@@ -22,6 +22,13 @@ const electronHandler = {
       ipcRenderer.once(channel, (_event, ...args) => func(...args));
     },
   },
+  // Thermal Printer API
+  printer: {
+    helloWorld: () => ipcRenderer.invoke('printer-hello-world'),
+    discover: () => ipcRenderer.invoke('printer-discover'),
+    test: () => ipcRenderer.invoke('printer-test'),
+    quickPrint: (text: string) => ipcRenderer.invoke('printer-quick-print', text),
+  },
 };
 
 contextBridge.exposeInMainWorld('electron', electronHandler);
