@@ -1,6 +1,6 @@
 /**
  * Printer Registry Implementation
- * 
+ *
  * This module implements the Registry pattern for managing multiple printer instances.
  * It provides centralized printer management, configuration persistence, and discovery.
  */
@@ -8,23 +8,24 @@
 import { EventEmitter } from 'events';
 import {
   IPrinter,
-  IPrinterRegistry,
   IPrinterFactory,
+  IPrinterRegistry,
   PrinterConfig,
+  PrinterConnectionType,
   PrinterDiscoveryResult,
   PrinterError,
   PrinterErrorCode,
   PrinterType,
-  PrinterConnectionType,
-  PaperSize,
-  PrinterEventCallback
 } from './interfaces';
 import { PrinterFactory } from './PrinterFactory';
 
 export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
   private printers = new Map<string, IPrinter>();
+
   private configs = new Map<string, PrinterConfig>();
+
   private defaultPrinterId: string | null = null;
+
   private factory: IPrinterFactory;
 
   constructor(factory?: IPrinterFactory) {
@@ -41,7 +42,7 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
       if (!this.factory.validateConfig(config)) {
         throw new PrinterError(
           'Invalid printer configuration',
-          PrinterErrorCode.INVALID_CONFIG
+          PrinterErrorCode.INVALID_CONFIG,
         );
       }
 
@@ -49,7 +50,7 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
       if (this.printers.has(config.id)) {
         throw new PrinterError(
           `Printer with ID '${config.id}' already exists`,
-          PrinterErrorCode.INVALID_CONFIG
+          PrinterErrorCode.INVALID_CONFIG,
         );
       }
 
@@ -58,6 +59,7 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
 
       // Store printer and config
       this.printers.set(config.id, printer);
+
       this.configs.set(config.id, { ...config });
 
       // Set up event forwarding
@@ -73,7 +75,7 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
         type: 'printer_registered',
         printerId: config.id,
         timestamp: new Date(),
-        data: { config }
+        data: { config },
       });
 
       return config.id;
@@ -82,7 +84,7 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
         `Failed to register printer: ${error.message}`,
         PrinterErrorCode.INVALID_CONFIG,
         config.id,
-        error
+        error,
       );
     }
   }
@@ -92,12 +94,12 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
    */
   async unregisterPrinter(id: string): Promise<void> {
     const printer = this.printers.get(id);
-    
+
     if (!printer) {
       throw new PrinterError(
         `Printer '${id}' not found`,
         PrinterErrorCode.PRINTER_NOT_FOUND,
-        id
+        id,
       );
     }
 
@@ -111,24 +113,22 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
 
       // Update default printer if necessary
       if (this.defaultPrinterId === id) {
-        this.defaultPrinterId = this.printers.size > 0 
-          ? this.printers.keys().next().value 
-          : null;
+        this.defaultPrinterId =
+          this.printers.size > 0 ? this.printers.keys().next().value : null;
       }
 
       // Emit unregistration event
       this.emit('printer_unregistered', {
         type: 'printer_unregistered',
         printerId: id,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
-
     } catch (error) {
       throw new PrinterError(
         `Failed to unregister printer: ${error.message}`,
         PrinterErrorCode.CONNECTION_FAILED,
         id,
-        error
+        error,
       );
     }
   }
@@ -151,7 +151,9 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
    * Get all available (connected) printers
    */
   getAvailablePrinters(): IPrinter[] {
-    return Array.from(this.printers.values()).filter(printer => printer.isConnected());
+    return Array.from(this.printers.values()).filter((printer) =>
+      printer.isConnected(),
+    );
   }
 
   /**
@@ -162,7 +164,7 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
       throw new PrinterError(
         `Printer '${id}' not found`,
         PrinterErrorCode.PRINTER_NOT_FOUND,
-        id
+        id,
       );
     }
 
@@ -187,7 +189,7 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
       type: 'default_printer_changed',
       printerId: id,
       timestamp: new Date(),
-      data: { oldDefaultId, newDefaultId: id }
+      data: { oldDefaultId, newDefaultId: id },
     });
   }
 
@@ -195,20 +197,25 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
    * Get default printer
    */
   getDefaultPrinter(): IPrinter | null {
-    return this.defaultPrinterId ? this.getPrinter(this.defaultPrinterId) : null;
+    return this.defaultPrinterId
+      ? this.getPrinter(this.defaultPrinterId)
+      : null;
   }
 
   /**
    * Update printer configuration
    */
-  async updatePrinterConfig(id: string, updates: Partial<PrinterConfig>): Promise<void> {
+  async updatePrinterConfig(
+    id: string,
+    updates: Partial<PrinterConfig>,
+  ): Promise<void> {
     const currentConfig = this.configs.get(id);
-    
+
     if (!currentConfig) {
       throw new PrinterError(
         `Printer '${id}' not found`,
         PrinterErrorCode.PRINTER_NOT_FOUND,
-        id
+        id,
       );
     }
 
@@ -220,14 +227,14 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
       throw new PrinterError(
         'Invalid configuration update',
         PrinterErrorCode.INVALID_CONFIG,
-        id
+        id,
       );
     }
 
     try {
       // Get current printer
       const currentPrinter = this.printers.get(id);
-      
+
       if (currentPrinter) {
         // If printer is connected, disconnect it first
         const wasConnected = currentPrinter.isConnected();
@@ -258,15 +265,14 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
         type: 'printer_config_updated',
         printerId: id,
         timestamp: new Date(),
-        data: { oldConfig: currentConfig, newConfig }
+        data: { oldConfig: currentConfig, newConfig },
       });
-
     } catch (error) {
       throw new PrinterError(
         `Failed to update printer configuration: ${error.message}`,
         PrinterErrorCode.INVALID_CONFIG,
         id,
-        error
+        error,
       );
     }
   }
@@ -286,18 +292,20 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
     const results: PrinterDiscoveryResult[] = [];
 
     try {
+      // USB printer discovery (CBX and other thermal printers)
+      results.push(...(await this.discoverUSBPrinters()));
+
       // Platform-specific printer discovery
       if (process.platform === 'win32') {
-        results.push(...await this.discoverWindowsPrinters());
+        results.push(...(await this.discoverWindowsPrinters()));
       } else if (process.platform === 'darwin') {
-        results.push(...await this.discoverMacOSPrinters());
+        results.push(...(await this.discoverMacOSPrinters()));
       } else {
-        results.push(...await this.discoverLinuxPrinters());
+        results.push(...(await this.discoverLinuxPrinters()));
       }
 
       // Network printer discovery
-      results.push(...await this.discoverNetworkPrinters());
-
+      results.push(...(await this.discoverNetworkPrinters()));
     } catch (error) {
       console.warn('Printer discovery failed:', error);
     }
@@ -310,7 +318,7 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
    */
   async validatePrinter(id: string): Promise<boolean> {
     const printer = this.printers.get(id);
-    
+
     if (!printer) {
       return false;
     }
@@ -343,32 +351,217 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
   }
 
   /**
+   * USB printer discovery (Cross-platform)
+   */
+  private async discoverUSBPrinters(): Promise<PrinterDiscoveryResult[]> {
+    const results: PrinterDiscoveryResult[] = [];
+
+    try {
+      const { execSync } = require('child_process');
+      let usbDevices = '';
+
+      if (process.platform === 'darwin') {
+        // macOS: Use system_profiler to find USB devices
+        try {
+          usbDevices = execSync('system_profiler SPUSBDataType', {
+            encoding: 'utf8',
+          });
+
+          // Look for CBX POS 89E or similar thermal printers
+          const lines = usbDevices.split('\n');
+          let currentDevice = '';
+          let deviceInfo: any = {};
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+
+            if (trimmed.includes('Product ID:')) {
+              deviceInfo.productId = trimmed.split(':')[1]?.trim();
+            }
+            if (trimmed.includes('Vendor ID:')) {
+              deviceInfo.vendorId = trimmed.split(':')[1]?.trim();
+            }
+            if (
+              trimmed.endsWith(':') &&
+              !trimmed.includes('Product ID') &&
+              !trimmed.includes('Vendor ID')
+            ) {
+              if (
+                currentDevice &&
+                this.isLikelyThermalPrinter(currentDevice, deviceInfo)
+              ) {
+                results.push({
+                  id: `usb_${currentDevice.replace(/\s+/g, '_')}`,
+                  name: currentDevice,
+                  type: this.guessePrinterType(currentDevice),
+                  connectionType: PrinterConnectionType.USB,
+                  connectionString: currentDevice,
+                  isAvailable: true,
+                });
+              }
+              currentDevice = trimmed.replace(':', '');
+              deviceInfo = {};
+            }
+          }
+
+          // Check the last device
+          if (
+            currentDevice &&
+            this.isLikelyThermalPrinter(currentDevice, deviceInfo)
+          ) {
+            results.push({
+              id: `usb_${currentDevice.replace(/\s+/g, '_')}`,
+              name: currentDevice,
+              type: this.guessePrinterType(currentDevice),
+              connectionType: PrinterConnectionType.USB,
+              connectionString: currentDevice,
+              isAvailable: true,
+            });
+          }
+        } catch (error) {
+          console.log('ℹ️  USB device enumeration not available');
+        }
+      } else if (process.platform === 'win32') {
+        // Windows: Use PowerShell to find USB devices
+        try {
+          usbDevices = execSync(
+            "powershell \"Get-WmiObject -Class Win32_PnPEntity | Where-Object {$_.Name -like '*printer*' -or $_.Name -like '*CBX*' -or $_.Name -like '*POS*'} | Select-Object Name, DeviceID\"",
+            { encoding: 'utf8' },
+          );
+
+          const lines = usbDevices.split('\n');
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (
+              trimmed &&
+              !trimmed.startsWith('Name') &&
+              !trimmed.startsWith('----') &&
+              trimmed.length > 0
+            ) {
+              const parts = trimmed.split(/\s+/);
+              const name = parts.slice(0, -1).join(' ');
+
+              if (name && this.isLikelyThermalPrinter(name)) {
+                results.push({
+                  id: `usb_${name.replace(/\s+/g, '_')}`,
+                  name,
+                  type: this.guessePrinterType(name),
+                  connectionType: PrinterConnectionType.USB,
+                  connectionString: name,
+                  isAvailable: true,
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.log('ℹ️  USB device enumeration not available on Windows');
+        }
+      } else {
+        // Linux: Use lsusb to find USB devices
+        try {
+          usbDevices = execSync('lsusb', { encoding: 'utf8' });
+
+          const lines = usbDevices.split('\n');
+          for (const line of lines) {
+            if (this.isLikelyThermalPrinter(line)) {
+              const parts = line.split(' ');
+              const name = parts.slice(6).join(' ');
+
+              if (name) {
+                results.push({
+                  id: `usb_${name.replace(/\s+/g, '_')}`,
+                  name,
+                  type: this.guessePrinterType(name),
+                  connectionType: PrinterConnectionType.USB,
+                  connectionString: name,
+                  isAvailable: true,
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.log('ℹ️  USB device enumeration not available on Linux');
+        }
+      }
+    } catch (error) {
+      console.log(
+        'ℹ️  USB printer discovery completed (no USB printers found)',
+      );
+    }
+
+    if (results.length > 0) {
+      console.log(`🔌 Found ${results.length} USB printer(s)`);
+    }
+
+    return results;
+  }
+
+  /**
+   * Check if a device name/description indicates it's likely a thermal printer
+   */
+  private isLikelyThermalPrinter(name: string, deviceInfo?: any): boolean {
+    const nameLower = name.toLowerCase();
+
+    // CBX POS 89E specific
+    if (
+      nameLower.includes('cbx') ||
+      nameLower.includes('89e') ||
+      nameLower.includes('pos')
+    ) {
+      return true;
+    }
+
+    // Common thermal printer brands/terms
+    const thermalKeywords = [
+      'thermal',
+      'receipt',
+      'pos',
+      'epson',
+      'star',
+      'citizen',
+      'zebra',
+      'esc/pos',
+      'tm-',
+      'tsp',
+      'rp',
+      'ct-',
+      'zd',
+      'gk',
+      'gx',
+    ];
+
+    return thermalKeywords.some((keyword) => nameLower.includes(keyword));
+  }
+
+  /**
    * Windows printer discovery
    */
   private async discoverWindowsPrinters(): Promise<PrinterDiscoveryResult[]> {
     const results: PrinterDiscoveryResult[] = [];
-    
+
     try {
       // Use Windows WMI or registry to find printers
       // This is a simplified implementation - in practice, you'd use node-printer or similar
       const { execSync } = require('child_process');
-      const output = execSync('wmic printer get name,portname', { encoding: 'utf8' });
-      
+      const output = execSync('wmic printer get name,portname', {
+        encoding: 'utf8',
+      });
+
       const lines = output.split('\n').slice(1); // Skip header
-      
+
       for (const line of lines) {
         const parts = line.trim().split(/\s+/);
         if (parts.length >= 2) {
           const name = parts[0];
           const port = parts[1];
-          
+
           results.push({
             id: `discovered_${name.replace(/\s+/g, '_')}`,
             name,
             type: this.guessePrinterType(name),
             connectionType: this.guessConnectionType(port),
             connectionString: name,
-            isAvailable: true
+            isAvailable: true,
           });
         }
       }
@@ -384,29 +577,34 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
    */
   private async discoverMacOSPrinters(): Promise<PrinterDiscoveryResult[]> {
     const results: PrinterDiscoveryResult[] = [];
-    
+
     try {
       const { execSync } = require('child_process');
       const output = execSync('lpstat -p', { encoding: 'utf8' });
-      
+
       const lines = output.split('\n');
-      
+
       for (const line of lines) {
         if (line.startsWith('printer ')) {
           const name = line.split(' ')[1];
-          
+
           results.push({
             id: `discovered_${name}`,
             name,
             type: this.guessePrinterType(name),
             connectionType: PrinterConnectionType.USB,
             connectionString: name,
-            isAvailable: true
+            isAvailable: true,
           });
         }
       }
-    } catch (error) {
-      console.warn('macOS printer discovery failed:', error);
+    } catch (error: any) {
+      // Handle "No destinations added" gracefully - this is normal when no printers are installed
+      if (error.stderr && error.stderr.includes('No destinations added')) {
+        console.log('ℹ️  No system printers found on macOS (this is normal)');
+      } else {
+        console.warn('macOS printer discovery failed:', error.message);
+      }
     }
 
     return results;
@@ -417,24 +615,24 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
    */
   private async discoverLinuxPrinters(): Promise<PrinterDiscoveryResult[]> {
     const results: PrinterDiscoveryResult[] = [];
-    
+
     try {
       const { execSync } = require('child_process');
       const output = execSync('lpstat -p', { encoding: 'utf8' });
-      
+
       const lines = output.split('\n');
-      
+
       for (const line of lines) {
         if (line.startsWith('printer ')) {
           const name = line.split(' ')[1];
-          
+
           results.push({
             id: `discovered_${name}`,
             name,
             type: this.guessePrinterType(name),
             connectionType: PrinterConnectionType.USB,
             connectionString: name,
-            isAvailable: true
+            isAvailable: true,
           });
         }
       }
@@ -450,21 +648,21 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
    */
   private async discoverNetworkPrinters(): Promise<PrinterDiscoveryResult[]> {
     const results: PrinterDiscoveryResult[] = [];
-    
+
     // This is a simplified implementation
     // In practice, you'd use network scanning, Bonjour/mDNS, or SNMP
     const commonIPs = [
       '192.168.1.100',
       '192.168.1.101',
       '192.168.0.100',
-      '192.168.0.101'
+      '192.168.0.101',
     ];
 
     for (const ip of commonIPs) {
       try {
         // Simple port check for common printer ports
         const isAvailable = await this.checkNetworkPrinter(ip, 9100);
-        
+
         if (isAvailable) {
           results.push({
             id: `network_${ip.replace(/\./g, '_')}`,
@@ -472,7 +670,7 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
             type: PrinterType.GENERIC_ESC_POS,
             connectionType: PrinterConnectionType.NETWORK,
             connectionString: `${ip}:9100`,
-            isAvailable: true
+            isAvailable: true,
           });
         }
       } catch (error) {
@@ -486,11 +684,14 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
   /**
    * Check if a network printer is available
    */
-  private async checkNetworkPrinter(ip: string, port: number): Promise<boolean> {
+  private async checkNetworkPrinter(
+    ip: string,
+    port: number,
+  ): Promise<boolean> {
     return new Promise((resolve) => {
       const net = require('net');
       const socket = new net.Socket();
-      
+
       const timeout = setTimeout(() => {
         socket.destroy();
         resolve(false);
@@ -514,19 +715,19 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
    */
   private guessePrinterType(name: string): PrinterType {
     const nameLower = name.toLowerCase();
-    
+
     if (nameLower.includes('cbx') || nameLower.includes('89e')) {
       return PrinterType.CBX_POS_89E;
     }
-    
+
     if (nameLower.includes('epson')) {
       return PrinterType.EPSON;
     }
-    
+
     if (nameLower.includes('star')) {
       return PrinterType.STAR;
     }
-    
+
     return PrinterType.GENERIC_ESC_POS;
   }
 
@@ -535,19 +736,19 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
    */
   private guessConnectionType(port: string): PrinterConnectionType {
     const portLower = port.toLowerCase();
-    
+
     if (portLower.includes('usb') || portLower.includes('hid')) {
       return PrinterConnectionType.USB;
     }
-    
+
     if (portLower.includes('com') || portLower.includes('tty')) {
       return PrinterConnectionType.SERIAL;
     }
-    
+
     if (portLower.includes('ip') || /\d+\.\d+\.\d+\.\d+/.test(port)) {
       return PrinterConnectionType.NETWORK;
     }
-    
+
     return PrinterConnectionType.USB; // Default assumption
   }
 
@@ -556,7 +757,7 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
    */
   async dispose(): Promise<void> {
     const printers = Array.from(this.printers.values());
-    
+
     // Dispose all printers in parallel
     await Promise.all(
       printers.map(async (printer) => {
@@ -565,7 +766,7 @@ export class PrinterRegistry extends EventEmitter implements IPrinterRegistry {
         } catch (error) {
           console.warn(`Failed to dispose printer ${printer.id}:`, error);
         }
-      })
+      }),
     );
 
     this.printers.clear();
