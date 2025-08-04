@@ -40,8 +40,8 @@ ipcMain.on('ipc-example', async (event, arg) => {
 // Setup thermal printer IPC handlers
 setupPrinterIPC();
 
-// Additional quick test handler for CBX POS 89E
-ipcMain.handle('printer-cbx-hello', async () => {
+// Additional quick test handler for CBX POS 89E (consistent naming)
+ipcMain.handle('printer:cbx-hello', async () => {
   try {
     await printHelloToCbx();
     return { success: true, message: 'Hello World printed to CBX POS 89E successfully!' };

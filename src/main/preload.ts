@@ -24,10 +24,24 @@ const electronHandler = {
   },
   // Thermal Printer API
   printer: {
-    helloWorld: () => ipcRenderer.invoke('printer-hello-world'),
-    discover: () => ipcRenderer.invoke('printer-discover'),
-    test: () => ipcRenderer.invoke('printer-test'),
-    quickPrint: (text: string) => ipcRenderer.invoke('printer-quick-print', text),
+    // Basic printing operations
+    helloWorld: (printerId?: string) => ipcRenderer.invoke('printer:hello-world', printerId),
+    quickPrint: (text: string, printerId?: string) => ipcRenderer.invoke('printer:quick-print', text, printerId),
+    
+    // Printer discovery and testing
+    discover: () => ipcRenderer.invoke('printer:discover'),
+    test: (printerId: string) => ipcRenderer.invoke('printer:test', printerId),
+    
+    // Printer management
+    add: (config: any) => ipcRenderer.invoke('printer:add', config),
+    remove: (printerId: string) => ipcRenderer.invoke('printer:remove', printerId),
+    list: () => ipcRenderer.invoke('printer:list'),
+    
+    // Printer configuration templates
+    getTemplates: () => ipcRenderer.invoke('printer:get-templates'),
+    
+    // CBX POS 89E specific quick test
+    cbxHello: () => ipcRenderer.invoke('printer:cbx-hello'),
   },
 };
 

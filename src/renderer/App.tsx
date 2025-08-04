@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Route, MemoryRouter as Router, Routes } from 'react-router-dom';
 import icon from '../../assets/icon.svg';
 import './App.css';
-import ThermalPrinterDemo from './components/ThermalPrinterDemo';
 
 function Hello() {
   const [message, setMessage] = useState<string>('');
@@ -180,8 +179,7 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* <Route path="/" element={<Hello />} /> */}
-        <Route path="/" element={<ThermalPrinterDemo />} />
+        <Route path="/" element={<Hello />} />
       </Routes>
     </Router>
   );
